@@ -3,11 +3,15 @@ from pdf2zh_next.translator.base_translator import BaseTranslator
 from pdf2zh_next.translator.rate_limiter.qps_rate_limiter import QPSRateLimiter
 from pdf2zh_next.translator.utils import get_rate_limiter
 from pdf2zh_next.translator.utils import get_translator
+from pdf2zh_next.translator.registry import TranslatorRegistry
+from pdf2zh_next.translator.plugin_loader import load_plugins
 
 __all__ = [
     "BaseTranslator",
-    "BaseRateLimiter",
+    "BaseRateLimiter", 
     "QPSRateLimiter",
     "get_rate_limiter",
     "get_translator",
+    "TranslatorRegistry",
+    "load_plugins",
 ]

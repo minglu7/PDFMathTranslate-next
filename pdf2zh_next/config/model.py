@@ -4,8 +4,9 @@ import enum
 import logging
 import re
 from pathlib import Path
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic import Field
 
 from pdf2zh_next.config.translate_engine_model import TRANSLATION_ENGINE_SETTING_TYPE
@@ -193,9 +194,38 @@ class SettingsModel(BaseModel):
     translation: TranslationSettings = Field(default_factory=TranslationSettings)
     pdf: PDFSettings = Field(default_factory=PDFSettings)
     gui_settings: GUISettings = Field(default_factory=GUISettings)
-    translate_engine_settings: TRANSLATION_ENGINE_SETTING_TYPE | None = Field(
-        description="Translation engine settings", discriminator="translate_engine_type"
+    translate_engine_settings: Any = Field(
+        default=None, 
+        description="Translation engine settings"
     )
+    
+    @field_validator('translate_engine_settings')
+    @classmethod
+    def validate_translate_engine_settings(cls, v):
+        """Validate translation engine settings, supports dynamic types"""
+        if v is None:
+            return v
+        
+        try:
+            from pdf2zh_next.config.dynamic_types import validate_translate_engine_setting
+            return validate_translate_engine_setting(v)
+        except ImportError:
+            # If dynamic type system is not available, fallback to basic validation
+            from pdf2zh_next.config.translate_engine_model import TRANSLATION_ENGINE_SETTING_TYPE
+            from typing import get_args
+            
+            builtin_types = get_args(TRANSLATION_ENGINE_SETTING_TYPE)
+            for builtin_type in builtin_types:
+                if isinstance(v, builtin_type):
+                    return v
+            
+            # Try validation based on discriminator field
+            if hasattr(v, 'translate_engine_type'):
+                return v
+            
+            raise ValueError(f"Invalid translation engine setting type: {type(v).__name__}")
+        
+        return v
 
     def clone(self) -> SettingsModel:
         return self.model_copy(deep=True)
