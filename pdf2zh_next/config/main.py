@@ -43,6 +43,92 @@ class MagicDefault:
     pass
 
 
+def _add_custom_translator_args(parser: argparse.ArgumentParser) -> None:
+    """Add CLI arguments for custom translators dynamically"""
+    try:
+        # Import here to avoid circular imports
+        from pdf2zh_next.translator import load_plugins
+        from pdf2zh_next.translator.registry import TranslatorRegistry
+        
+        # Load plugins to register custom translators
+        load_plugins()
+        
+        # Get all custom translators
+        custom_translators = TranslatorRegistry.get_all_translator_info()
+        
+        for translator_type, translator_info in custom_translators.items():
+            # Add flag for the translator
+            flag_name = translator_type.lower()
+            parser.add_argument(
+                f'--{flag_name}',
+                action='store_true',
+                help=f'Use {translator_type} for translation'
+            )
+            
+            # Add arguments for each field in the settings class
+            settings_class = translator_info.settings_class
+            if hasattr(settings_class, 'model_fields'):
+                for field_name, field_info in settings_class.model_fields.items():
+                    if field_name == 'translate_engine_type':
+                        continue  # Skip the type field
+                    
+                    arg_name = field_name.replace('_', '-').lower()
+                    field_type = field_info.annotation
+                    
+                    # Handle different field types
+                    origin = getattr(field_type, '__origin__', None)
+                    args = getattr(field_type, '__args__', ())
+                    
+                    # Handle Union types (both typing.Union and new | syntax)
+                    if origin is typing.Union or (args and type(None) in args):
+                        # Find the non-None type
+                        actual_type = None
+                        for arg in args:
+                            if arg is not type(None):
+                                actual_type = arg
+                                break
+                        
+                        if actual_type is str:
+                            parser.add_argument(
+                                f'--{arg_name}',
+                                type=str,
+                                help=field_info.description or f'{translator_type} {field_name}'
+                            )
+                        elif actual_type is int:
+                            parser.add_argument(
+                                f'--{arg_name}',
+                                type=int,
+                                help=field_info.description or f'{translator_type} {field_name}'
+                            )
+                        elif actual_type is bool:
+                            parser.add_argument(
+                                f'--{arg_name}',
+                                action='store_true',
+                                help=field_info.description or f'{translator_type} {field_name}'
+                            )
+                    elif field_type is str:
+                        parser.add_argument(
+                            f'--{arg_name}',
+                            type=str,
+                            help=field_info.description or f'{translator_type} {field_name}'
+                        )
+                    elif field_type is int:
+                        parser.add_argument(
+                            f'--{arg_name}',
+                            type=int,
+                            help=field_info.description or f'{translator_type} {field_name}'
+                        )
+                    elif field_type is bool:
+                        parser.add_argument(
+                            f'--{arg_name}',
+                            action='store_true',
+                            help=field_info.description or f'{translator_type} {field_name}'
+                        )
+        
+    except Exception as e:
+        # If loading plugins fails, just continue without custom args
+        log.debug(f"Failed to add custom translator args: {e}")
+
 def build_args_parser(
     parser: argparse.ArgumentParser | None = None,
     settings_model: type[BaseModel] | None = None,
@@ -130,6 +216,11 @@ def build_args_parser(
                         default=MagicDefault,
                         help=field_detail.description,
                     )
+    
+    # Add custom translator arguments if this is the root parser
+    if recursion_depth == 0:
+        _add_custom_translator_args(parser)
+    
     return parser, field_name2type
 
 
@@ -378,6 +469,36 @@ class ConfigManager:
                     else:
                         log.debug(f"Field {field_name} not found in type hints")
 
+        # Add custom translator parameters if this is the root level
+        if recursion_depth == 0:
+            try:
+                from pdf2zh_next.translator import load_plugins
+                from pdf2zh_next.translator.registry import TranslatorRegistry
+                
+                load_plugins()
+                custom_translators = TranslatorRegistry.get_all_translator_info()
+                
+                for translator_type, translator_info in custom_translators.items():
+                    flag_name = translator_type.lower()
+                    flag_name_upper = f"{prefix}{flag_name.upper()}"
+                    
+                    # Add the translator flag
+                    if flag_name_upper in dict_vars:
+                        env_settings[flag_name] = dict_vars[flag_name_upper]
+                    
+                    # Add translator-specific settings
+                    settings_class = translator_info.settings_class
+                    for field_name, field_info in settings_class.model_fields.items():
+                        if field_name == 'translate_engine_type':
+                            continue
+                        
+                        env_name = f"{prefix}{field_name.upper()}"
+                        if env_name in dict_vars:
+                            env_settings[field_name.lower()] = dict_vars[env_name]
+                            
+            except Exception as e:
+                log.debug(f"Error adding custom translator params: {e}")
+        
         if recursion_depth == 0:
             log.debug(f"Environment settings: {env_settings}")
         return env_settings
@@ -494,11 +615,31 @@ class ConfigManager:
         """
         result = {}
         enabled_engine = None
+        
+        # Get custom translator names
+        custom_engine_names = []
+        try:
+            from pdf2zh_next.translator import load_plugins
+            from pdf2zh_next.translator.registry import TranslatorRegistry
+            load_plugins()
+            custom_translators = TranslatorRegistry.get_all_translator_info()
+            custom_engine_names = [t.lower() for t in custom_translators.keys()]
+        except Exception:
+            pass
+        
+        # Check for enabled engines (both predefined and custom)
         for config in config_dicts:
+            # Check predefined engines
             for engine_name in _translation_engine_flag_names:
                 if config.get(engine_name, False):
                     enabled_engine = engine_name
                     break
+            # Check custom engines
+            if not enabled_engine:
+                for engine_name in custom_engine_names:
+                    if config.get(engine_name, False):
+                        enabled_engine = engine_name
+                        break
             if enabled_engine:
                 break
 
@@ -507,9 +648,13 @@ class ConfigManager:
             # Deep merge config into result
             self._deep_merge(result, config)
 
+        # Disable other engines if one is enabled
         if enabled_engine:
             for engine_name in _translation_engine_flag_names:
                 if engine_name in result:
+                    result[engine_name] = False
+            for engine_name in custom_engine_names:
+                if engine_name in result and engine_name != enabled_engine:
                     result[engine_name] = False
             result[enabled_engine] = True
 
@@ -606,11 +751,24 @@ class ConfigManager:
             args_dict: Dictionary of arguments
 
         Returns:
-            Instance of the specified model class
+            Instance of the specified model class with extra attributes
         """
+        
+        # Filter args_dict to only include fields that the model accepts
+        model_fields = set(model_class.model_fields.keys())
+        filtered_args = {k: v for k, v in args_dict.items() if k in model_fields}
+        
+        # Store the extra args for custom translator handling
+        extra_args = {k: v for k, v in args_dict.items() if k not in model_fields}
+        
+        # Create the model instance
+        instance = model_class(**filtered_args)
+        
+        # Store extra args in a special attribute that bypasses Pydantic validation
+        if extra_args:
+            object.__setattr__(instance, '_extra_args', extra_args)
 
-        # Create and return the model instance
-        return model_class(**args_dict)
+        return instance
 
     @property
     def settings(self) -> SettingsModel:

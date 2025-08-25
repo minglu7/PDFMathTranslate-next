@@ -24,6 +24,8 @@ from pdf2zh_next.config.translate_engine_model import GUI_PASSWORD_FIELDS
 from pdf2zh_next.config.translate_engine_model import GUI_SENSITIVE_FIELDS
 from pdf2zh_next.config.translate_engine_model import TRANSLATION_ENGINE_METADATA
 from pdf2zh_next.config.translate_engine_model import TRANSLATION_ENGINE_METADATA_MAP
+from pdf2zh_next.translator.plugin_loader import load_plugins
+from pdf2zh_next.translator.registry import TranslatorRegistry
 from pdf2zh_next.high_level import TranslationError
 from pdf2zh_next.high_level import do_translate_async_stream
 
@@ -219,9 +221,40 @@ for display_name, code in lang_map.items():
 else:
     default_lang_to = "Simplified Chinese"  # Fallback
 
-# Available translation services
-# This will eventually be dynamically determined based on available translators
+# Load custom translator plugins
+load_plugins()
+
+# Available translation services (built-in + custom)
+# Get built-in services
 available_services = [x.translate_engine_type for x in TRANSLATION_ENGINE_METADATA]
+
+# Add custom translator services
+custom_translators = TranslatorRegistry.list_custom_translators()
+for translator_type in custom_translators:
+    if translator_type not in available_services:
+        available_services.append(translator_type)
+
+logger.info(f"Available translation services: {available_services}")
+
+# Create dynamic metadata mapping for custom translators
+TRANSLATION_ENGINE_METADATA_MAP_DYNAMIC = TRANSLATION_ENGINE_METADATA_MAP.copy()
+
+# Generate metadata for custom translators
+for translator_type in custom_translators:
+    if translator_type not in TRANSLATION_ENGINE_METADATA_MAP_DYNAMIC:
+        # Get translator info from registry
+        translator_info = TranslatorRegistry.get_translator_info(translator_type)
+        if translator_info:
+            # Create a simple metadata object for custom translators
+            from types import SimpleNamespace
+            custom_metadata = SimpleNamespace(
+                translate_engine_type=translator_type,
+                cli_flag_name=translator_type.lower(),
+                cli_detail_field_name=f"{translator_type.lower()}_detail",
+                setting_model_type=translator_info["settings_class"],
+                support_llm=translator_info.get("support_llm", False)
+            )
+            TRANSLATION_ENGINE_METADATA_MAP_DYNAMIC[translator_type] = custom_metadata
 
 if settings.gui_settings.enabled_services:
     enabled_services = {
@@ -452,13 +485,19 @@ def _build_translate_settings(
     if formular_char_pattern:
         translate_settings.pdf.formular_char_pattern = formular_char_pattern
 
-    assert service in TRANSLATION_ENGINE_METADATA_MAP, "UNKNOW TRANSLATION ENGINE!"
+    assert service in TRANSLATION_ENGINE_METADATA_MAP_DYNAMIC, "UNKNOW TRANSLATION ENGINE!"
 
-    for metadata in TRANSLATION_ENGINE_METADATA:
+    # Handle both built-in and custom translators
+    all_metadata = list(TRANSLATION_ENGINE_METADATA)
+    for translator_type in custom_translators:
+        if translator_type in TRANSLATION_ENGINE_METADATA_MAP_DYNAMIC:
+            all_metadata.append(TRANSLATION_ENGINE_METADATA_MAP_DYNAMIC[translator_type])
+    
+    for metadata in all_metadata:
         cli_flag = metadata.cli_flag_name
         setattr(translate_settings, cli_flag, False)
 
-    metadata = TRANSLATION_ENGINE_METADATA_MAP[service]
+    metadata = TRANSLATION_ENGINE_METADATA_MAP_DYNAMIC[service]
     cli_flag = metadata.cli_flag_name
     setattr(translate_settings, cli_flag, True)
     if metadata.cli_detail_field_name:
@@ -961,7 +1000,7 @@ with gr.Blocks(
 
                 __gui_service_arg_names = []
                 for service_name in available_services:
-                    metadata = TRANSLATION_ENGINE_METADATA_MAP[service_name]
+                    metadata = TRANSLATION_ENGINE_METADATA_MAP_DYNAMIC[service_name]
                     LLM_support_index_map[metadata.translate_engine_type] = (
                         metadata.support_llm
                     )

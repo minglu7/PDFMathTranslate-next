@@ -64,21 +64,66 @@ CLIEnvSettingsModel = create_model(
 
 
 def to_settings_model(self) -> SettingsModel:
-    for metadata in TRANSLATION_ENGINE_METADATA:
-        if getattr(self, metadata.cli_flag_name):
-            if metadata.cli_detail_field_name:
-                translate_engine_settings = metadata.setting_model_type(
-                    **getattr(self, metadata.cli_detail_field_name).model_dump()
-                )
-            else:
-                translate_engine_settings = metadata.setting_model_type()
-            break
+    # Get model data excluding translation engine flags
+    model_data = self.model_dump(exclude=__exclude_fields)
+    
+    # Check if translate_engine_settings is provided directly (from config file)
+    if hasattr(self, 'translate_engine_settings') and self.translate_engine_settings is not None:
+        translate_engine_settings = self.translate_engine_settings
+    # Also check _extra_args for translate_engine_settings (from config file processing)
+    elif hasattr(self, '_extra_args') and 'translate_engine_settings' in getattr(self, '_extra_args', {}):
+        translate_engine_settings = self._extra_args['translate_engine_settings']
     else:
-        logger.warning("No translation engine selected, using SiliconFlow Free")
-        translate_engine_settings = _DEFAULT_TRANSLATION_ENGINE()
+        # Check for custom translators first
+        translate_engine_settings = None
+        try:
+            from pdf2zh_next.translator import load_plugins
+            from pdf2zh_next.translator.registry import TranslatorRegistry
+            
+            load_plugins()
+            custom_translators = TranslatorRegistry.get_all_translator_info()
+            
+            for translator_type, translator_info in custom_translators.items():
+                flag_name = translator_type.lower()
+                # Check if this custom translator was selected
+                extra_args = getattr(self, '_extra_args', {})
+                if extra_args.get(flag_name, False):
+                    # Build settings from CLI args
+                    settings_data = {'translate_engine_type': translator_type}
+                    settings_class = translator_info.settings_class
+                    
+                    for field_name, field_info in settings_class.model_fields.items():
+                        if field_name == 'translate_engine_type':
+                            continue
+                        
+                        cli_field_name = field_name.lower()
+                        if cli_field_name in extra_args:
+                            value = extra_args[cli_field_name]
+                            if value is not None:
+                                settings_data[field_name] = value
+                    
+                    translate_engine_settings = settings_class(**settings_data)
+                    break
+        except Exception as e:
+            logger.debug(f"Error checking custom translators: {e}")
+        
+        # If no custom translator found, check predefined ones
+        if translate_engine_settings is None:
+            for metadata in TRANSLATION_ENGINE_METADATA:
+                if getattr(self, metadata.cli_flag_name):
+                    if metadata.cli_detail_field_name:
+                        translate_engine_settings = metadata.setting_model_type(
+                            **getattr(self, metadata.cli_detail_field_name).model_dump()
+                        )
+                    else:
+                        translate_engine_settings = metadata.setting_model_type()
+                    break
+            else:
+                logger.warning("No translation engine selected, using SiliconFlow Free")
+                translate_engine_settings = _DEFAULT_TRANSLATION_ENGINE()
 
     return SettingsModel(
-        **self.model_dump(exclude=__exclude_fields),
+        **model_data,
         translate_engine_settings=translate_engine_settings,
     )
 

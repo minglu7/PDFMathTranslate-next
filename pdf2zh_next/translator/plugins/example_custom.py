@@ -13,20 +13,20 @@ from pdf2zh_next.translator.registry import TranslatorRegistry
 logger = logging.getLogger(__name__)
 
 
-class ExampleCustomSettings(BaseModel):
-    """Example custom translator settings"""
+class LLMEnabledExampleSettings(BaseModel):
+    """Settings for LLM-enabled example translator"""
     
-    translate_engine_type: Literal["ExampleCustom"] = Field(default="ExampleCustom")
+    translate_engine_type: Literal["LLMEnabledExample"] = Field(default="LLMEnabledExample")
     support_llm: Literal["yes", "no"] = Field(
         default="yes", description="Whether the translator supports LLM"
     )
     
     api_key: str | None = Field(
-        default=None, description="API key for example custom service"
+        default=None, description="API key for LLM-enabled example service"
     )
     base_url: str = Field(
         default="https://api.example.com", 
-        description="Base URL for example custom service"
+        description="Base URL for LLM-enabled example service"
     )
     model_name: str = Field(
         default="example-model", 
@@ -40,15 +40,15 @@ class ExampleCustomSettings(BaseModel):
     def validate_settings(self) -> None:
         """Validate settings"""
         if not self.api_key:
-            raise ValueError("Example Custom API key is required")
+            raise ValueError("LLM Enabled Example API key is required")
 
 
-class ExampleCustomTranslator(BaseTranslator):
-    """Example custom translator"""
+class LLMEnabledExampleTranslator(BaseTranslator):
+    """Example translator with LLM support"""
     
-    name = "example_custom"
+    name = "llm_enabled_example"
     support_llm = True
-    lang_map = {"zh": "zh-CN", "en": "en-US"}  # 可选的语言映射
+    lang_map = {"zh": "zh-CN", "en": "en-US"} 
     
     def __init__(
         self,
@@ -68,7 +68,7 @@ class ExampleCustomTranslator(BaseTranslator):
         self.add_cache_impact_parameters("model_name", self.model_name)
         self.add_cache_impact_parameters("temperature", self.temperature)
         
-        logger.info(f"Initialized ExampleCustomTranslator with model: {self.model_name}")
+        logger.info(f"Initialized LLMEnabledExampleTranslator with model: {self.model_name}")
     
     def do_translate(self, text: str, rate_limit_params: dict = None) -> str:
         """
@@ -95,17 +95,17 @@ class ExampleCustomTranslator(BaseTranslator):
         return translated
 
 
-class AnotherExampleSettings(BaseModel):
-    """Another example translator settings"""
+class NoLLMExampleSettings(BaseModel):
+    """Settings for No-LLM example translator"""
     
-    translate_engine_type: Literal["AnotherExample"] = Field(default="AnotherExample")
+    translate_engine_type: Literal["NoLLMExample"] = Field(default="NoLLMExample")
     support_llm: Literal["yes", "no"] = Field(
         default="no", description="Whether the translator supports LLM"
     )
     
     service_url: str = Field(
-        default="https://translate.another-example.com",
-        description="Service URL"
+        default="https://translate.no-llm-example.com",
+        description="Service URL for No-LLM translator"
     )
     timeout: int = Field(
         default=30,
@@ -117,10 +117,10 @@ class AnotherExampleSettings(BaseModel):
         pass
 
 
-class AnotherExampleTranslator(BaseTranslator):
-    """Another example translator (does not support LLM)"""
+class NoLLMExampleTranslator(BaseTranslator):
+    """Example translator without LLM support"""
     
-    name = "another_example"
+    name = "no_llm_example"
     support_llm = False
     
     def __init__(
@@ -133,7 +133,7 @@ class AnotherExampleTranslator(BaseTranslator):
         self.service_url = config.service_url
         self.timeout = config.timeout
         
-        logger.info(f"Initialized AnotherExampleTranslator with URL: {self.service_url}")
+        logger.info(f"Initialized NoLLMExampleTranslator with URL: {self.service_url}")
     
     def do_translate(self, text: str, rate_limit_params: dict = None) -> str:
         """Execute translation"""
@@ -146,20 +146,20 @@ def register_translator():
     Function to register translators
     Plugin loader will automatically call this function
     """
-    # Register first translator
+    # Register first translator (with LLM support)
     TranslatorRegistry.register(
-        "ExampleCustom",
-        ExampleCustomTranslator,
-        ExampleCustomSettings,
+        "LLMEnabledExample",
+        LLMEnabledExampleTranslator,
+        LLMEnabledExampleSettings,
         support_llm=True
     )
     
-    # Register second translator
+    # Register second translator (without LLM support)
     TranslatorRegistry.register(
-        "AnotherExample",
-        AnotherExampleTranslator,
-        AnotherExampleSettings,
+        "NoLLMExample",
+        NoLLMExampleTranslator,
+        NoLLMExampleSettings,
         support_llm=False
     )
     
-    logger.info("Registered example custom translators: ExampleCustom, AnotherExample")
+    logger.info("Registered example custom translators: LLMEnabledExample, NoLLMExample")
