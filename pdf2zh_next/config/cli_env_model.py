@@ -15,6 +15,16 @@ logger = logging.getLogger(__name__)
 # if you need to modify it,
 # please contact the maintainer!
 
+# Load plugins before creating fields to include custom translators
+try:
+    from pdf2zh_next.translator.plugin_loader import load_plugins
+    from pdf2zh_next.translator.registry import TranslatorRegistry
+    load_plugins()
+    custom_translators = TranslatorRegistry.get_all_translator_info()
+except Exception as e:
+    logger.debug(f"Failed to load custom translators: {e}")
+    custom_translators = {}
+
 __translation_flag_fields = {
     x.cli_flag_name: (
         bool,
@@ -24,6 +34,16 @@ __translation_flag_fields = {
     )
     for x in TRANSLATION_ENGINE_METADATA
 }
+
+# Add custom translator flag fields
+for translator_type, translator_info in custom_translators.items():
+    flag_name = translator_type.lower()
+    __translation_flag_fields[flag_name] = (
+        bool,
+        Field(
+            default=False, description=f"Use {translator_type} for translation"
+        ),
+    )
 
 __translation_flag_fields.update(
     {
@@ -35,6 +55,14 @@ __translation_flag_fields.update(
         if x.cli_detail_field_name
     }
 )
+
+# Add custom translator detail fields
+for translator_type, translator_info in custom_translators.items():
+    detail_field_name = f"{translator_type.lower()}_detail"
+    __translation_flag_fields[detail_field_name] = (
+        translator_info.settings_class,
+        Field(default_factory=translator_info.settings_class),
+    )
 
 __exclude_fields = list(__translation_flag_fields.keys())
 

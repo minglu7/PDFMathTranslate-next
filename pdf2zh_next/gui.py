@@ -251,8 +251,8 @@ for translator_type in custom_translators:
                 translate_engine_type=translator_type,
                 cli_flag_name=translator_type.lower(),
                 cli_detail_field_name=f"{translator_type.lower()}_detail",
-                setting_model_type=translator_info["settings_class"],
-                support_llm=translator_info.get("support_llm", False)
+                setting_model_type=translator_info.settings_class,
+                support_llm=getattr(translator_info, "support_llm", False)
             )
             TRANSLATION_ENGINE_METADATA_MAP_DYNAMIC[translator_type] = custom_metadata
 
@@ -1007,7 +1007,11 @@ with gr.Blocks(
                     if not metadata.cli_detail_field_name:
                         # no detail field, no need to show
                         continue
-                    detail_settings = getattr(settings, metadata.cli_detail_field_name)
+                    # For custom translators, the detail settings might not exist in the settings object
+                    detail_settings = getattr(settings, metadata.cli_detail_field_name, None)
+                    if detail_settings is None:
+                        # Create default instance for custom translators
+                        detail_settings = metadata.setting_model_type()
                     visible = service.value == metadata.translate_engine_type
 
                     # OpenAI specific settings (initially visible if OpenAI is default)
@@ -1038,6 +1042,8 @@ with gr.Blocks(
                                 or str in type_args
                                 or type_hint is int
                                 or int in type_args
+                                or type_hint is float
+                                or float in type_args
                             ):
                                 if field_name in GUI_PASSWORD_FIELDS:
                                     field_input = gr.Textbox(
