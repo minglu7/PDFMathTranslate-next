@@ -154,7 +154,7 @@ class PDFSettings(BaseModel):
         default=False, description="Use alternating pages mode for dual PDF"
     )
     watermark_output_mode: WatermarkOutputMode = Field(
-        default=WatermarkOutputMode.Watermarked,
+        default=WatermarkOutputMode.NoWatermark,
         description="Watermark output mode for PDF files",
     )
     max_pages_per_part: int | None = Field(
