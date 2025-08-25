@@ -114,23 +114,56 @@ def to_settings_model(self) -> SettingsModel:
             for translator_type, translator_info in custom_translators.items():
                 flag_name = translator_type.lower()
                 # Check if this custom translator was selected
-                extra_args = getattr(self, '_extra_args', {})
-                if extra_args.get(flag_name, False):
-                    # Build settings from CLI args
-                    settings_data = {'translate_engine_type': translator_type}
-                    settings_class = translator_info.settings_class
-                    
-                    for field_name, field_info in settings_class.model_fields.items():
-                        if field_name == 'translate_engine_type':
-                            continue
+                if getattr(self, flag_name, False):
+                    # Check if we have a detail field first
+                    detail_field_name = f"{flag_name}_detail"
+                    if hasattr(self, detail_field_name):
+                        # Get the detail settings and update with CLI args
+                        detail_settings = getattr(self, detail_field_name)
+                        settings_data = detail_settings.model_dump()
                         
-                        cli_field_name = field_name.lower()
-                        if cli_field_name in extra_args:
-                            value = extra_args[cli_field_name]
-                            if value is not None:
-                                settings_data[field_name] = value
-                    
-                    translate_engine_settings = settings_class(**settings_data)
+                        # Override with any CLI args that were explicitly set
+                        for field_name, field_info in translator_info.settings_class.model_fields.items():
+                            if field_name == 'translate_engine_type':
+                                continue
+                            
+                            # Check if CLI arg exists and override
+                            if hasattr(self, field_name):
+                                cli_value = getattr(self, field_name)
+                                if cli_value is not None:
+                                    settings_data[field_name] = cli_value
+                                    logger.debug(f"Override {field_name}={cli_value} from CLI")
+                        
+                        translate_engine_settings = translator_info.settings_class(**settings_data)
+                    else:
+                        # Fallback to building from CLI args directly  
+                        settings_data = {'translate_engine_type': translator_type}
+                        settings_class = translator_info.settings_class
+                        
+                        for field_name, field_info in settings_class.model_fields.items():
+                            if field_name == 'translate_engine_type':
+                                continue
+                            
+                            # Try to get value from CLI args - check multiple possible CLI field names
+                            value = None
+                            possible_names = [
+                                field_name,  # exact field name
+                                field_name.lower(),  # lowercase
+                                f"{flag_name}_{field_name.lower()}",  # prefixed with translator name
+                            ]
+                            
+                            for cli_field_name in possible_names:
+                                if hasattr(self, cli_field_name):
+                                    value = getattr(self, cli_field_name)
+                                    logger.debug(f"Found {cli_field_name}={value} for field {field_name}")
+                                    if value is not None:
+                                        settings_data[field_name] = value
+                                        break
+                            
+                            if value is None:
+                                logger.debug(f"No value found for field {field_name}, tried: {possible_names}")
+                        
+                        translate_engine_settings = settings_class(**settings_data)
                     break
         except Exception as e:
             logger.debug(f"Error checking custom translators: {e}")
