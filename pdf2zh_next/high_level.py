@@ -430,7 +430,7 @@ def create_babeldoc_config(settings: SettingsModel, file: Path) -> BabelDOCConfi
         )
 
     # 设置水印模式
-    watermark_output_mode = settings.pdf.watermark_output_mode.lower()
+    watermark_output_mode = settings.pdf.watermark_output_mode
     if watermark_output_mode == "no_watermark":
         watermark_mode = BabelDOCWatermarkMode.NoWatermark
     elif watermark_output_mode == "both":
