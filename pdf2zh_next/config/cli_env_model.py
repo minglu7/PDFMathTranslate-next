@@ -17,12 +17,14 @@ logger = logging.getLogger(__name__)
 
 # Load plugins before creating fields to include custom translators
 try:
-    from pdf2zh_next.translator.plugin_loader import load_plugins
-    from pdf2zh_next.translator.registry import TranslatorRegistry
+    from pdf2zh_next.translator import load_plugins, TranslatorRegistry
     load_plugins()
     custom_translators = TranslatorRegistry.get_all_translator_info()
+    logger.debug(f"Loaded custom translators at module level: {list(custom_translators.keys())}")
 except Exception as e:
-    logger.debug(f"Failed to load custom translators: {e}")
+    logger.warning(f"Failed to load custom translators: {e}")
+    import traceback
+    logger.debug(f"Traceback: {traceback.format_exc()}")
     custom_translators = {}
 
 __translation_flag_fields = {
@@ -105,8 +107,7 @@ def to_settings_model(self) -> SettingsModel:
         # Check for custom translators first
         translate_engine_settings = None
         try:
-            from pdf2zh_next.translator import load_plugins
-            from pdf2zh_next.translator.registry import TranslatorRegistry
+            from pdf2zh_next.translator import load_plugins, TranslatorRegistry
             
             load_plugins()
             custom_translators = TranslatorRegistry.get_all_translator_info()

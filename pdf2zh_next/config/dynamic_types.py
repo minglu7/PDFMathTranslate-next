@@ -163,7 +163,7 @@ def validate_translate_engine_setting(value: Any) -> BaseModel:
     # Ensure plugins are loaded
     if not DynamicTypeManager.is_initialized():
         try:
-            from pdf2zh_next.translator.plugin_loader import load_plugins
+            from pdf2zh_next.translator import load_plugins
             load_plugins()
         except ImportError:
             logger.warning("Plugin loader not available")
