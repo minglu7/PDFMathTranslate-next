@@ -1,0 +1,26 @@
+[project]
+name = "pdf2zh-plugin-sungrow"
+version = "0.1.0"
+description = "Sungrow translator plugin for pdf2zh-next"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [ { name = "PDF2ZH-next Contributors" } ]
+dependencies = [
+  "pdf2zh-next>=2.4.2",
+  "requests",
+  "tenacity",
+  "pydantic>=2",
+]
+
+[project.entry-points."pdf2zh_next.translators"]
+sungrow = "pdf2zh_plugin_sungrow.sungrow:register_translator"
+
+[build-system]
+requires = ["hatchling>=1.18.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+packages = [
+  { include = "pdf2zh_plugin_sungrow", from = "src" }
+]
+

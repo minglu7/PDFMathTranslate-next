@@ -1,27 +1,28 @@
 import logging
 from typing import Literal
 
-from pydantic import BaseModel, Field
 import requests
-from pdf2zh_next.config.model import SettingsModel
-from pdf2zh_next.config.translate_engine_model import GUI_PASSWORD_FIELDS, GUI_SENSITIVE_FIELDS
-from pdf2zh_next.translator.base_rate_limiter import BaseRateLimiter
-from pdf2zh_next.translator.base_translator import BaseTranslator
+from pydantic import BaseModel, Field
 from tenacity import before_sleep_log
 from tenacity import retry
 from tenacity import retry_if_exception_type
 from tenacity import stop_after_attempt
 from tenacity import wait_exponential
 
+from pdf2zh_next.config.model import SettingsModel
+from pdf2zh_next.config.translate_engine_model import GUI_PASSWORD_FIELDS, GUI_SENSITIVE_FIELDS
+from pdf2zh_next.translator.base_rate_limiter import BaseRateLimiter
+from pdf2zh_next.translator.base_translator import BaseTranslator
 from pdf2zh_next.translator.registry import TranslatorRegistry
 
 logger = logging.getLogger(__name__)
+
 
 class SungrowSettings(BaseModel):
     """Sungrow Translation API settings"""
 
     translate_engine_type: Literal["Sungrow"] = Field(default="Sungrow")
-    
+
     sungrow_api_url: str | None = Field(
         default=None, description="Sungrow translation API server URL"
     )
@@ -54,7 +55,7 @@ GUI_SENSITIVE_FIELDS.extend(["sungrow_api_url", "sungrow_tenant_id"])
 
 
 class SungrowTranslator(BaseTranslator):
-    """Sungrow公司翻译API实现类"""
+    """Sungrow translation API implementation"""
 
     name = "sungrow"
     lang_map = {}
@@ -66,19 +67,16 @@ class SungrowTranslator(BaseTranslator):
     ):
         super().__init__(settings, rate_limiter)
 
-        # 获取 Sungrow 特定设置
-        sungrow_settings: SungrowSettings = settings.translate_engine_settings
-
-        self.api_url = sungrow_settings.sungrow_api_url
-        self.username = sungrow_settings.sungrow_username
-        self.password = sungrow_settings.sungrow_password
-        self.tenant_id = sungrow_settings.sungrow_tenant_id
-        self.scene = sungrow_settings.sungrow_scene
-        self.timeout = 60  # 默认超时时间60秒
+        cfg: SungrowSettings = settings.translate_engine_settings
+        self.api_url = cfg.sungrow_api_url
+        self.username = cfg.sungrow_username
+        self.password = cfg.sungrow_password
+        self.tenant_id = cfg.sungrow_tenant_id
+        self.scene = cfg.sungrow_scene
+        self.timeout = 60
         self.basic_auth = (self.username, self.password)
 
-        # 验证设置
-        sungrow_settings.validate_settings()
+        cfg.validate_settings()
 
     @retry(
         retry=retry_if_exception_type(Exception),
@@ -86,8 +84,7 @@ class SungrowTranslator(BaseTranslator):
         wait=wait_exponential(multiplier=1, min=1, max=15),
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    def do_translate(self, text: str, rate_limit_params: dict = None):
-        """单文本翻译（符合BaseTranslator接口）"""
+    def do_translate(self, text: str, rate_limit_params: dict | None = None):
         if not text or not text.strip():
             return text
 
@@ -113,14 +110,15 @@ class SungrowTranslator(BaseTranslator):
             translate_res = data["data"].get("translateRes", [])
             return translate_res[0] if translate_res else text
 
-        logger.warning(f"翻译API业务返回异常: {data}")
+        logger.warning(f"Sungrow API business returned error: {data}")
         return text
 
 
-def register_translator():
-    """Register translator"""
+def register_translator() -> None:
+    """Register translator via entry point callable."""
     TranslatorRegistry.register(
-        "sungrow",
+        "Sungrow",
         SungrowTranslator,
-        SungrowSettings
+        SungrowSettings,
     )
+

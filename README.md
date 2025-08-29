@@ -51,6 +51,12 @@ PDF scientific paper translation and bilingual comparison.
 
 For details on how to contribute, please consult the [Contribution Guide](https://pdf2zh-next.com/community/Contribution-Guide.html).
 
+**Plugin Architecture**
+- Custom translators are now distributed as standalone Python packages discovered via entry points.
+- Entry point group: `pdf2zh_next.translators`
+- See `CUSTOM_TRANSLATOR_GUIDE.md` and example at `examples/pdf2zh-plugin-sungrow/`.
+- Audit plugins: run `pdf2zh-plugin-doctor` to check installed plugins for Python and dependency compatibility. It provides actionable pip install suggestions when unmet.
+
 <h2 id="updates">Updates</h2>
 
 - [Jun. 4, 2025] The project is renamed and move to [PDFMathTranslate/PDFMathTranslate-next](https://github.com/PDFMathTranslate/PDFMathTranslate-next) (by [@awwaawwa](https://github.com/awwaawwa))

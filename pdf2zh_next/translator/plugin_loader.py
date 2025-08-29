@@ -1,290 +1,273 @@
 """
-Plugin loader
-Supports loading custom translator plugins from multiple directories
+Plugin loader (entry-point based)
+Loads custom translator plugins from installed Python packages via entry points.
+Performs runtime precheck of plugin package requirements and Python version.
 """
-import os
-import sys
 import logging
-import importlib.util
-from pathlib import Path
-from typing import List, Optional
+import sys
+from typing import Optional, Set, List, Tuple
+
+try:
+    # Python 3.10+
+    from importlib.metadata import (
+        entry_points,
+        EntryPoint,
+        distributions,
+        Distribution,
+        version as get_version,
+        PackageNotFoundError,
+    )
+except Exception:  # pragma: no cover - fallback for very old Pythons
+    from importlib_metadata import (  # type: ignore
+        entry_points,
+        EntryPoint,
+        distributions,
+        Distribution,
+        version as get_version,
+        PackageNotFoundError,
+    )
+
 from pdf2zh_next.translator.registry import TranslatorRegistry
 
 logger = logging.getLogger(__name__)
 
 
+ENTRYPOINT_GROUP = "pdf2zh_next.translators"
+
+
 class PluginLoader:
-    """Plugin loader"""
-    
-    def __init__(self, plugin_dirs: Optional[List[Path]] = None):
-        """
-        Initialize plugin loader
-        
-        Args:
-            plugin_dirs: Plugin directory list, use default directories if None
-        """
-        if plugin_dirs is None:
-            self.plugin_dirs = self._get_default_plugin_dirs()
-        else:
-            self.plugin_dirs = plugin_dirs
-        
-        self._loaded_plugins = set()
-    
-    def _get_default_plugin_dirs(self) -> List[Path]:
-        """Get default plugin directories"""
-        dirs = []
-        
-        # 1. Built-in plugin directory
-        builtin_dir = Path(__file__).parent / "plugins"
-        dirs.append(builtin_dir)
-        
-        # 2. User global plugin directory
-        user_dir = Path.home() / ".pdf2zh" / "plugins"
-        dirs.append(user_dir)
-        
-        # 3. Project local plugin directory
-        project_dir = Path.cwd() / "pdf2zh_plugins"
-        dirs.append(project_dir)
-        
-        # 4. Environment variable specified plugin directory
-        env_plugin_dir = os.environ.get('PDF2ZH_PLUGIN_DIR')
-        if env_plugin_dir:
-            dirs.append(Path(env_plugin_dir))
-        
-        return dirs
-    
+    """Plugin loader using Python entry points."""
+
+    def __init__(self):
+        self._loaded_entrypoint_names: Set[str] = set()
+
     def load_all_plugins(self) -> int:
-        """
-        Load plugins from all plugin directories
-        
+        """Load plugins from installed packages via entry points.
+
         Returns:
-            Number of successfully loaded plugins
+            int: Number of successfully loaded plugins
         """
         if TranslatorRegistry.is_initialized():
             logger.debug("Plugins already loaded, skipping")
             return len(TranslatorRegistry.list_custom_translators())
-        
+
         loaded_count = 0
-        for plugin_dir in self.plugin_dirs:
-            if plugin_dir.exists() and plugin_dir.is_dir():
-                count = self._load_plugins_from_dir(plugin_dir)
-                loaded_count += count
-                logger.info(f"Loaded {count} plugins from {plugin_dir}")
-            else:
-                logger.debug(f"Plugin directory not found: {plugin_dir}")
-        
+        ep_items = self._discover_entry_points()
+        for ep, dist in ep_items:
+            try:
+                if ep.name in self._loaded_entrypoint_names:
+                    continue
+                # Precheck requirements of the providing distribution
+                ok, warnings = self._precheck_distribution(dist)
+                if not ok:
+                    for msg in warnings:
+                        logger.warning(msg)
+                    logger.warning(
+                        f"Skipped loading plugin '{ep.name}' due to unmet requirements"
+                    )
+                    continue
+                self._load_from_entry_point(ep)
+                self._loaded_entrypoint_names.add(ep.name)
+                loaded_count += 1
+                logger.info(f"Loaded plugin entry point: {ep.name} -> {ep.value}")
+            except Exception as e:
+                logger.error(f"Failed to load plugin from entry point {ep.name}: {e}")
+
         TranslatorRegistry.set_initialized(True)
-        
+
         # Also set dynamic type manager status
         try:
             from pdf2zh_next.config.dynamic_types import DynamicTypeManager
             DynamicTypeManager.set_initialized(True)
         except ImportError:
             pass
-        
+
         logger.info(f"Total loaded plugins: {loaded_count}")
         return loaded_count
-    
-    def _load_plugins_from_dir(self, plugin_dir: Path) -> int:
-        """
-        Load plugins from specified directory
-        
-        Args:
-            plugin_dir: Plugin directory path
-            
-        Returns:
-            Number of successfully loaded plugins
-        """
-        loaded_count = 0
-        
-        for py_file in plugin_dir.glob("*.py"):
-            # Skip private files and __init__.py
-            if py_file.name.startswith("_"):
-                continue
-            
-            if self._load_plugin_file(py_file):
-                loaded_count += 1
-        
-        return loaded_count
-    
-    def _load_plugin_file(self, plugin_file: Path) -> bool:
-        """
-        Load single plugin file
-        
-        Args:
-            plugin_file: Plugin file path
-            
-        Returns:
-            Whether loading was successful
-        """
-        # Avoid duplicate loading
-        if str(plugin_file) in self._loaded_plugins:
-            return False
-        
+
+    def _discover_entry_points(self) -> List[Tuple[EntryPoint, "Distribution"]]:
+        """Discover entry points for this application and their distributions."""
+        items: List[Tuple[EntryPoint, "Distribution"]] = []
         try:
-            # Dynamically import module
-            module_name = f"pdf2zh_plugin_{plugin_file.stem}_{id(plugin_file)}"
-            spec = importlib.util.spec_from_file_location(module_name, plugin_file)
-            
-            if spec is None or spec.loader is None:
-                logger.error(f"Failed to create spec for plugin: {plugin_file}")
-                return False
-            
-            module = importlib.util.module_from_spec(spec)
-            
-            # Add to sys.modules to support relative imports
-            sys.modules[module_name] = module
-            
-            try:
-                spec.loader.exec_module(module)
-            except Exception as e:
-                # Clean up sys.modules
-                if module_name in sys.modules:
-                    del sys.modules[module_name]
-                raise e
-            
-            # Try to call registration function
-            success = self._register_plugin_translators(module, plugin_file)
-            
-            if success:
-                self._loaded_plugins.add(str(plugin_file))
-                logger.debug(f"Successfully loaded plugin: {plugin_file}")
-                return True
-            else:
-                # Clean up sys.modules
-                if module_name in sys.modules:
-                    del sys.modules[module_name]
-                return False
-                
+            for dist in distributions():
+                try:
+                    for ep in getattr(dist, "entry_points", []):
+                        if getattr(ep, "group", None) == ENTRYPOINT_GROUP:
+                            items.append((ep, dist))
+                except Exception:
+                    continue
+            logger.debug(
+                f"Discovered {len(items)} entry points in group '{ENTRYPOINT_GROUP}'"
+            )
         except Exception as e:
-            logger.error(f"Failed to load plugin {plugin_file}: {e}")
-            return False
-    
-    def _register_plugin_translators(self, module, plugin_file: Path) -> bool:
+            logger.error(f"Error discovering entry points: {e}")
+        return items
+
+    def _precheck_distribution(self, dist: "Distribution") -> Tuple[bool, List[str]]:
+        """Precheck plugin distribution requirements.
+
+        - Validates Requires-Python
+        - Validates Requires-Dist (installed and version-satisfied)
+        - Highlights pdf2zh-next compatibility explicitly
+
+        Returns: (ok, messages)
         """
-        Register translators from plugin
-        
-        Args:
-            module: Plugin module
-            plugin_file: Plugin file path
-            
-        Returns:
-            Whether registration was successful
+        messages: List[str] = []
+
+        name = dist.metadata.get("Name", "<unknown-plugin>")
+        requires_python = (dist.metadata or {}).get("Requires-Python")
+
+        # Attempt to use packaging for robust spec parsing if available
+        try:
+            from packaging.requirements import Requirement  # type: ignore
+            from packaging.specifiers import SpecifierSet  # type: ignore
+            from packaging.version import Version  # type: ignore
+            from packaging.markers import default_environment  # type: ignore
+            from packaging.utils import canonicalize_name  # type: ignore
+
+            # Python version check
+            if requires_python:
+                try:
+                    spec = SpecifierSet(requires_python)
+                    py_version = Version(
+                        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+                    )
+                    if py_version not in spec:
+                        messages.append(
+                            f"Plugin '{name}' requires Python {requires_python}, "
+                            f"but current Python is {py_version}. Consider using a compatible Python version or a plugin version supporting your Python."
+                        )
+                        return False, messages
+                except Exception:
+                    # If parsing fails, ignore this check
+                    pass
+
+            # Dependency checks
+            env = default_environment()
+            requires = dist.requires or []
+            for req_line in requires:
+                try:
+                    req = Requirement(req_line)
+                except Exception:
+                    continue
+
+                # Skip if environment marker doesn't match
+                if req.marker and not req.marker.evaluate(env):
+                    continue
+
+                pkg_name = canonicalize_name(req.name)
+                # Emphasize our own package requirement
+                if pkg_name in {canonicalize_name("pdf2zh-next"), canonicalize_name("pdf2zh_next")}:
+                    try:
+                        cur_ver = get_version("pdf2zh-next")
+                    except PackageNotFoundError:
+                        try:
+                            cur_ver = get_version("pdf2zh_next")
+                        except PackageNotFoundError:
+                            cur_ver = None
+                    if cur_ver is None:
+                        messages.append(
+                            f"Plugin '{name}' requires '{req}', but pdf2zh-next is not installed. Try: pip install 'pdf2zh-next{req.specifier}'"
+                        )
+                        return False, messages
+                    if req.specifier and Version(cur_ver) not in req.specifier:
+                        messages.append(
+                            f"Plugin '{name}' requires '{req}', but installed pdf2zh-next=={cur_ver} does not satisfy. "
+                            f"Try aligning versions, e.g.: pip install 'pdf2zh-next{req.specifier}'"
+                        )
+                        return False, messages
+                    continue
+
+                # General dependency check
+                try:
+                    installed_ver = get_version(req.name)
+                except PackageNotFoundError:
+                    messages.append(
+                        f"Plugin '{name}' requires '{req}', but '{req.name}' is not installed. Try: pip install '{req.name}{req.specifier}'"
+                    )
+                    return False, messages
+
+                if req.specifier and Version(installed_ver) not in req.specifier:
+                    messages.append(
+                        f"Plugin '{name}' requires '{req}', but installed {req.name}=={installed_ver} does not satisfy. "
+                        f"Try: pip install '{req.name}{req.specifier}'"
+                    )
+                    return False, messages
+
+            return True, []
+
+        except Exception:
+            # packaging not available or unexpected error; skip strict checks
+            logger.debug(
+                f"Dependency precheck limited for plugin '{name}' (packaging not available)"
+            )
+            return True, []
+
+    def _load_from_entry_point(self, ep: "EntryPoint") -> None:
+        """Load and execute a plugin registration entry point.
+
+        The entry point should resolve to a callable that performs
+        registration by calling TranslatorRegistry.register(...).
         """
-        success = False
-        
-        # Method 1: Call register_translator function
-        if hasattr(module, 'register_translator'):
-            try:
-                module.register_translator()
-                success = True
-                logger.debug(f"Registered translators via register_translator() from {plugin_file}")
-            except Exception as e:
-                logger.error(f"Error calling register_translator() from {plugin_file}: {e}")
-        
-        # Method 2: Call register_translators function (supports plural form)
-        if hasattr(module, 'register_translators'):
-            try:
-                module.register_translators()
-                success = True
-                logger.debug(f"Registered translators via register_translators() from {plugin_file}")
-            except Exception as e:
-                logger.error(f"Error calling register_translators() from {plugin_file}: {e}")
-        
-        # Method 3: Auto-discover and register (search for translator classes in module)
-        auto_registered = self._auto_register_translators(module, plugin_file)
-        if auto_registered:
-            success = True
-        
-        if not success:
-            logger.warning(f"No translators registered from plugin: {plugin_file}")
-        
-        return success
-    
-    def _auto_register_translators(self, module, plugin_file: Path) -> bool:
-        """
-        Auto-discover and register translators
-        
-        Args:
-            module: Plugin module
-            plugin_file: Plugin file path
-            
-        Returns:
-            Whether any translators were registered
-        """
+        target = ep.load()
+
+        # If the object is a callable, call it (preferred)
+        if callable(target):
+            target()
+            return
+
+        # If it's a module-like object, attempt auto-registration
+        try:
+            self._auto_register_from_module(target)
+        except Exception as e:
+            raise RuntimeError(
+                f"Entry point '{ep.name}' resolved to non-callable and auto-discovery failed: {e}"
+            )
+
+    def _auto_register_from_module(self, module) -> None:
+        """Auto-discover translator and settings classes inside a module and register them."""
         from pdf2zh_next.translator.base_translator import BaseTranslator
         from pydantic import BaseModel
-        
-        registered = False
-        
-        # Find classes that inherit from BaseTranslator
+
         translator_classes = []
         settings_classes = []
-        
+
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
-            
-            if (isinstance(attr, type) and 
-                issubclass(attr, BaseTranslator) and 
-                attr != BaseTranslator):
+            if isinstance(attr, type) and issubclass(attr, BaseTranslator) and attr is not BaseTranslator:
                 translator_classes.append(attr)
-            
-            elif (isinstance(attr, type) and 
-                  issubclass(attr, BaseModel) and 
-                  attr != BaseModel and
-                  attr_name.endswith('Settings')):
+            elif (
+                isinstance(attr, type)
+                and issubclass(attr, BaseModel)
+                and attr is not BaseModel
+                and attr_name.endswith("Settings")
+            ):
                 settings_classes.append(attr)
-        
-        # Try to match translator classes with settings classes
-        for translator_class in translator_classes:
-            # Find corresponding settings class
-            translator_name = translator_class.__name__.replace('Translator', '')
-            settings_class = None
-            
-            for settings_cls in settings_classes:
-                settings_name = settings_cls.__name__.replace('Settings', '')
-                if translator_name == settings_name:
-                    settings_class = settings_cls
+
+        any_registered = False
+        for t_cls in translator_classes:
+            t_name = t_cls.__name__.removesuffix("Translator")
+            matched_settings = None
+            for s_cls in settings_classes:
+                s_name = s_cls.__name__.removesuffix("Settings")
+                if s_name == t_name:
+                    matched_settings = s_cls
                     break
-            
-            if settings_class:
-                try:
-                    # Get translator type from settings class
-                    translator_type = translator_name
-                    if hasattr(settings_class, 'model_fields') and 'translate_engine_type' in settings_class.model_fields:
-                        field = settings_class.model_fields['translate_engine_type']
-                        if hasattr(field, 'default'):
-                            translator_type = field.default
-                    
-                    TranslatorRegistry.register(translator_type, translator_class, settings_class)
-                    registered = True
-                    logger.debug(f"Auto-registered translator {translator_type} from {plugin_file}")
-                    
-                except Exception as e:
-                    logger.error(f"Error auto-registering translator {translator_class.__name__}: {e}")
-        
-        return registered
-    
-    def reload_plugin(self, plugin_file: Path) -> bool:
-        """
-        Reload specified plugin
-        
-        Args:
-            plugin_file: Plugin file path
-            
-        Returns:
-            Whether reload was successful
-        """
-        # Remove from loaded list
-        plugin_path_str = str(plugin_file)
-        if plugin_path_str in self._loaded_plugins:
-            self._loaded_plugins.remove(plugin_path_str)
-        
-        return self._load_plugin_file(plugin_file)
-    
-    def get_loaded_plugins(self) -> List[str]:
-        """Get list of loaded plugins"""
-        return list(self._loaded_plugins)
+
+            if matched_settings is None:
+                continue
+
+            translator_type = t_name
+            if hasattr(matched_settings, "model_fields") and "translate_engine_type" in matched_settings.model_fields:
+                field = matched_settings.model_fields["translate_engine_type"]
+                if hasattr(field, "default"):
+                    translator_type = field.default
+
+            TranslatorRegistry.register(translator_type, t_cls, matched_settings)
+            any_registered = True
+
+        if not any_registered:
+            raise RuntimeError("No translator classes discovered for auto-registration")
 
 
 # Global plugin loader instance
