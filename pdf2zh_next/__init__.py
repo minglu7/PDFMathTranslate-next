@@ -2,6 +2,7 @@ from pdf2zh_next.config import AnythingLLMSettings
 from pdf2zh_next.config import AzureOpenAISettings
 from pdf2zh_next.config import AzureSettings
 from pdf2zh_next.config import BingSettings
+from pdf2zh_next.config import ClaudeCodeSettings
 from pdf2zh_next.config import DeepLSettings
 from pdf2zh_next.config import DeepSeekSettings
 from pdf2zh_next.config import DifySettings
@@ -14,6 +15,7 @@ from pdf2zh_next.config import OllamaSettings
 from pdf2zh_next.config import OpenAISettings
 from pdf2zh_next.config import QwenMtSettings
 from pdf2zh_next.config import SiliconFlowSettings
+from pdf2zh_next.config import SungrowSettings
 from pdf2zh_next.config import TencentSettings
 from pdf2zh_next.config import XinferenceSettings
 from pdf2zh_next.config import ZhipuSettings
@@ -22,7 +24,6 @@ from pdf2zh_next.config.model import BasicSettings
 from pdf2zh_next.config.model import PDFSettings
 from pdf2zh_next.config.model import SettingsModel
 from pdf2zh_next.config.model import TranslationSettings
-from pdf2zh_next.config.model import WatermarkOutputMode
 from pdf2zh_next.high_level import create_babeldoc_config
 from pdf2zh_next.high_level import do_translate_async_stream
 from pdf2zh_next.high_level import do_translate_file
@@ -60,11 +61,11 @@ __all__ = [
     "QwenMtSettings",
     "PDFSettings",
     "TranslationSettings",
-    "WatermarkOutputMode",
     "do_translate_file_async",
     "do_translate_file",
     "do_translate_async_stream",
     "create_babeldoc_config",
     "ConfigManager",
     "ClaudeCodeSettings",
+    "SungrowSettings",
 ]

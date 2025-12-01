@@ -3,7 +3,6 @@ from pdf2zh_next.config.model import BasicSettings
 from pdf2zh_next.config.model import PDFSettings
 from pdf2zh_next.config.model import SettingsModel
 from pdf2zh_next.config.model import TranslationSettings
-from pdf2zh_next.config.model import WatermarkOutputMode
 from pdf2zh_next.config.translate_engine_model import TRANSLATION_ENGINE_METADATA
 from pdf2zh_next.config.translate_engine_model import AnythingLLMSettings
 from pdf2zh_next.config.translate_engine_model import AzureOpenAISettings
@@ -22,6 +21,7 @@ from pdf2zh_next.config.translate_engine_model import OllamaSettings
 from pdf2zh_next.config.translate_engine_model import OpenAISettings
 from pdf2zh_next.config.translate_engine_model import QwenMtSettings
 from pdf2zh_next.config.translate_engine_model import SiliconFlowSettings
+from pdf2zh_next.config.translate_engine_model import SungrowSettings
 from pdf2zh_next.config.translate_engine_model import TencentSettings
 from pdf2zh_next.config.translate_engine_model import XinferenceSettings
 from pdf2zh_next.config.translate_engine_model import ZhipuSettings
@@ -32,7 +32,6 @@ __all__ = [
     "BasicSettings",
     "TranslationSettings",
     "PDFSettings",
-    "WatermarkOutputMode",
     "BingSettings",
     "GoogleSettings",
     "OpenAISettings",
@@ -54,4 +53,5 @@ __all__ = [
     "DeepSeekSettings",
     "TRANSLATION_ENGINE_METADATA",
     "ClaudeCodeSettings",
+    "SungrowSettings",
 ]

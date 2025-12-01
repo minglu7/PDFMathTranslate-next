@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import enum
 import logging
 import re
 from pathlib import Path
@@ -26,14 +25,6 @@ log = logging.getLogger(__name__)
 #
 # If you want to use other fields, please go to `pdf2zh_next/config/cli_env_model.py`
 # and add the corresponding forwarding statement at `__cli_env_settings_model_fields`!
-
-
-class WatermarkOutputMode(enum.Enum):
-    """Watermark output mode for PDF files"""
-
-    Watermarked = "watermarked"  # Add watermark to translated PDF
-    NoWatermark = "no_watermark"  # Don't add watermark
-    Both = "both"  # Output both watermarked and non-watermarked versions
 
 
 class BasicSettings(BaseModel):
@@ -166,9 +157,9 @@ class PDFSettings(BaseModel):
     use_alternating_pages_dual: bool = Field(
         default=False, description="Use alternating pages mode for dual PDF"
     )
-    watermark_output_mode: WatermarkOutputMode = Field(
-        default=WatermarkOutputMode.NoWatermark,
-        description="Watermark output mode for PDF files",
+    watermark_output_mode: str = Field(
+        default="watermarked",
+        description="Watermark output mode for PDF files (watermarked, no_watermark, or both)",
     )
     max_pages_per_part: int | None = Field(
         default=None, description="Maximum pages per part for split translation"
