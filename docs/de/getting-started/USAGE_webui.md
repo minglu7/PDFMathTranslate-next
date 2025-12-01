@@ -24,10 +24,16 @@ Es gibt mehrere Methoden, um die WebUI-Oberfläche zu öffnen. Wenn Sie **Window
     http://localhost:7860/
     ```
 
-    Ziehen Sie die `PDF`-Datei in das Fenster und klicken Sie auf `Translate`.
+    Ziehen Sie die PDF-Datei in das Fenster und klicken Sie auf `Translate`.
 
-<!-- <img src="./images/gui.gif" width="500"/> -->
-<img src='./../images/gui.gif' width="500"/>
+5. Wenn Sie PDFMathTranslate mit Docker bereitstellen und ollama als Backend-LLM für PDFMathTranslate verwenden, sollten Sie "Ollama host" mit folgendem Wert ausfüllen:
+
+   ```bash
+   http://host.docker.internal:11434
+   ```
+
+<!-- <img src="./../../images/gui.gif" width="500"/> -->
+<img src='./../../images/gui.gif' width="500"/>
 
 ### Umgebungsvariablen
 
@@ -38,12 +44,8 @@ Sie können die Quell- und Zielsprachen mit Umgebungsvariablen festlegen:
 
 ## Vorschau
 
-<img src="./../images/before.png" width="500"/>
-<img src="./../images/after.png" width="500"/>
-
-## Wartung
-
-GUI gepflegt von [Rongxin](https://github.com/reycn)
+<img src="./../../images/before.png" width="500"/>
+<img src="./../../images/after.png" width="500"/>
 
 <div align="right"> 
 <h6><small>Ein Teil des Inhalts dieser Seite wurde von GPT übersetzt und kann Fehler enthalten.</small></h6>

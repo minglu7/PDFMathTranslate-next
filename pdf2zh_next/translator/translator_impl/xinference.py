@@ -1,6 +1,5 @@
 import logging
 
-import xinference_client
 from pdf2zh_next.config.model import SettingsModel
 from pdf2zh_next.translator.base_rate_limiter import BaseRateLimiter
 from pdf2zh_next.translator.base_translator import BaseTranslator
@@ -27,7 +26,7 @@ class XinferenceTranslator(BaseTranslator):
             "temperature": 0,
         }  # 随机采样可能会打断公式标记
         self.client = Client(
-            host=settings.translate_engine_settings.xinference_host,
+            base_url=settings.translate_engine_settings.xinference_host,
         )
         self.add_cache_impact_parameters("temperature", self.options["temperature"])
         self.model = settings.translate_engine_settings.xinference_model
@@ -35,7 +34,7 @@ class XinferenceTranslator(BaseTranslator):
         self.add_cache_impact_parameters("prompt", self.prompt(""))
 
     @retry(
-        retry=retry_if_exception_type(xinference_client.RuntimeError),
+        retry=retry_if_exception_type(RuntimeError),
         stop=stop_after_attempt(100),
         wait=wait_exponential(multiplier=1, min=1, max=15),
         before_sleep=before_sleep_log(logger, logging.WARNING),
@@ -59,7 +58,7 @@ class XinferenceTranslator(BaseTranslator):
         raise Exception("All models failed")
 
     @retry(
-        retry=retry_if_exception_type(xinference_client.RuntimeError),
+        retry=retry_if_exception_type(RuntimeError),
         stop=stop_after_attempt(100),
         wait=wait_exponential(multiplier=1, min=1, max=15),
         before_sleep=before_sleep_log(logger, logging.WARNING),

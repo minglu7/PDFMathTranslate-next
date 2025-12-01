@@ -8,6 +8,10 @@ from pathlib import Path
 from pydantic import BaseModel
 from pydantic import Field
 
+from pdf2zh_next.config.translate_engine_model import (
+    TERM_EXTRACTION_ENGINE_SETTING_TYPE,
+)
+from pdf2zh_next.config.translate_engine_model import TRANSLATION_ENGINE_METADATA_MAP
 from pdf2zh_next.config.translate_engine_model import TRANSLATION_ENGINE_SETTING_TYPE
 
 log = logging.getLogger(__name__)
@@ -72,6 +76,7 @@ class GUISettings(BaseModel):
         default=False, description="Disable automatic saving of configuration"
     )
     server_port: int = Field(default=7860, description="WebUI port")
+    ui_lang: str | None = Field(default="en", description="UI language")
 
 
 class TranslationSettings(BaseModel):
@@ -105,6 +110,14 @@ class TranslationSettings(BaseModel):
     pool_max_workers: int | None = Field(
         default=None,
         description="Maximum number of workers for translation pool. If not set, will use qps as the number of workers",
+    )
+    term_qps: int | None = Field(
+        default=None,
+        description="QPS limit for term extraction translation service. If not set, will follow qps.",
+    )
+    term_pool_max_workers: int | None = Field(
+        default=None,
+        description="Maximum number of workers for term extraction translation pool. If not set or 0, will follow pool_max_workers.",
     )
     no_auto_extract_glossary: bool = Field(
         default=False,
@@ -178,6 +191,26 @@ class PDFSettings(BaseModel):
         default=False,
         description="Only include translated pages in the output PDF. Effective only when --pages is used.",
     )
+    no_merge_alternating_line_numbers: bool = Field(
+        default=False,
+        description="Handle alternating line numbers and text paragraphs in documents with line numbers",
+    )
+    no_remove_non_formula_lines: bool = Field(
+        default=False,
+        description="Remove non-formula lines within paragraph areas",
+    )
+    non_formula_line_iou_threshold: float = Field(
+        default=0.9,
+        description="IoU threshold for identifying non-formula lines",
+    )
+    figure_table_protection_threshold: float = Field(
+        default=0.9,
+        description="Protection threshold for figures and tables (lines within figures/tables will not be processed)",
+    )
+    skip_formula_offset_calculation: bool = Field(
+        default=False,
+        description="Skip formula offset calculation during processing",
+    )
 
 
 class SettingsModel(BaseModel):
@@ -195,6 +228,11 @@ class SettingsModel(BaseModel):
     gui_settings: GUISettings = Field(default_factory=GUISettings)
     translate_engine_settings: TRANSLATION_ENGINE_SETTING_TYPE | None = Field(
         description="Translation engine settings", discriminator="translate_engine_type"
+    )
+    term_extraction_engine_settings: TERM_EXTRACTION_ENGINE_SETTING_TYPE | None = Field(
+        default=None,
+        description="Term extraction translation engine settings",
+        discriminator="translate_engine_type",
     )
 
     def clone(self) -> SettingsModel:
@@ -244,6 +282,46 @@ class SettingsModel(BaseModel):
             log.info(f"Transformed translate_engine_settings: {from_type} -> {to_type}")
             self.translate_engine_settings.validate_settings()
 
+        # Validate and normalize term extraction engine settings
+        main_engine_type = self.translate_engine_settings.translate_engine_type
+        main_metadata = TRANSLATION_ENGINE_METADATA_MAP.get(main_engine_type)
+
+        if self.term_extraction_engine_settings is not None:
+            term_engine_type = (
+                self.term_extraction_engine_settings.translate_engine_type
+            )
+            term_metadata = TRANSLATION_ENGINE_METADATA_MAP.get(term_engine_type)
+            if not term_metadata or not term_metadata.support_llm:
+                raise ValueError(
+                    f"Term extraction engine {term_engine_type} must support LLM"
+                )
+            # Validate and transform term extraction engine if necessary
+            if hasattr(self.term_extraction_engine_settings, "validate_settings"):
+                self.term_extraction_engine_settings.validate_settings()
+            if hasattr(self.term_extraction_engine_settings, "transform"):
+                from_type = self.term_extraction_engine_settings.translate_engine_type
+                self.term_extraction_engine_settings = (
+                    self.term_extraction_engine_settings.transform()
+                )
+                to_type = self.term_extraction_engine_settings.translate_engine_type
+                log.info(
+                    f"Transformed term_extraction_engine_settings: {from_type} -> {to_type}"
+                )
+                if hasattr(self.term_extraction_engine_settings, "validate_settings"):
+                    self.term_extraction_engine_settings.validate_settings()
+        else:
+            # Default behavior: follow main engine if it supports LLM, otherwise disable auto term extraction
+            if main_metadata and main_metadata.support_llm:
+                self.term_extraction_engine_settings = self.translate_engine_settings
+            else:
+                self.term_extraction_engine_settings = None
+                if not self.translation.no_auto_extract_glossary:
+                    self.translation.no_auto_extract_glossary = True
+                    log.warning(
+                        "Current translation engine does not support LLM, "
+                        "automatic term extraction will be disabled."
+                    )
+
         # Validate files
         for file in self.basic.input_files:
             file_path = Path(file.strip("\"'"))
@@ -276,13 +354,36 @@ class SettingsModel(BaseModel):
         if self.pdf.max_pages_per_part and self.pdf.max_pages_per_part < 0:
             raise ValueError("max_pages_per_part must be greater than 0")
 
-        if self.pdf.watermark_output_mode not in WatermarkOutputMode:
+        # Validate and store watermark mode
+        watermark_output_mode_maps = {
+            "nowatermark": "no_watermark",
+            "no_watermark": "no_watermark",
+            "watermarked": "watermarked",
+            "both": "both",
+        }
+
+        watermark_output_mode = self.pdf.watermark_output_mode.lower()
+        if watermark_output_mode not in watermark_output_mode_maps:
             raise ValueError(
-                f"Invalid watermark output mode: {self.pdf.watermark_output_mode}"
+                f"Invalid watermark output mode: {watermark_output_mode}. "
+                f"Valid modes: {', '.join(watermark_output_mode_maps.keys())}"
             )
+
+        self.pdf.watermark_output_mode = watermark_output_mode_maps[
+            watermark_output_mode
+        ]
 
         if self.translation.qps < 1:
             raise ValueError("qps must be greater than 0")
+
+        if self.translation.term_qps is not None and self.translation.term_qps < 1:
+            raise ValueError("term_qps must be greater than 0")
+
+        if (
+            self.translation.term_pool_max_workers is not None
+            and self.translation.term_pool_max_workers < 0
+        ):
+            raise ValueError("term_pool_max_workers must be greater than or equal to 0")
 
         if self.translation.min_text_length < 0:
             raise ValueError("min_text_length must be greater than or equal to 0")
@@ -305,6 +406,16 @@ class SettingsModel(BaseModel):
         ):
             raise ValueError(
                 f"Invalid primary font family: {self.translation.primary_font_family}"
+            )
+
+        if not (0.0 <= self.pdf.non_formula_line_iou_threshold <= 1.0):
+            raise ValueError(
+                "non_formula_line_iou_threshold must be between 0.0 and 1.0"
+            )
+
+        if not (0.0 <= self.pdf.figure_table_protection_threshold <= 1.0):
+            raise ValueError(
+                "figure_table_protection_threshold must be between 0.0 and 1.0"
             )
 
         if self.pdf.auto_enable_ocr_workaround and self.pdf.ocr_workaround:
@@ -364,3 +475,9 @@ class SettingsModel(BaseModel):
             raise ValueError(f"Error parsing pages parameter: {e}") from e
 
         return ranges
+
+
+if __name__ == "__main__":
+    import json
+
+    print(json.dumps(SettingsModel.model_json_schema(), ensure_ascii=False))

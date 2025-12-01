@@ -16,12 +16,19 @@ Thank you for your interest in this project! Before you start contributing, plea
 4. Other contributions deemed inappropriate by the maintainers.
 5. Contributing documentation, but changing the documentation in languages other than English.
 6. PRs that require modifying PDF files.
+7. PRs that modify the `pdf2zh_next/gui_translation.yaml` file.
 
 Please do NOT submit PRs related to the above types.
 
 > [!NOTE]
 >
 > If you want to contribute documentation, please **only modify the English version of the documentation**. Other language versions are translated by contributors themselves.
+
+## PRs that are recommended to discuss with maintainers via Issue before submission
+
+For the following types of PRs, it is recommended to discuss with maintainers first before submission:
+
+1. PRs related to multi-user sharing functionality. (This project is primarily designed for single-user use and does not intend to introduce a comprehensive multi-user system).
 
 ## Contribution Process
 
@@ -99,6 +106,13 @@ Please do NOT submit PRs related to the above types.
 > [!NOTE]
 >
 > This project does not intend to support any translation engines with an RPS (requests per second) lower than 4. Please do not submit support for such engines.
+> The following types of translators will also not be integrated:
+> - Translators that have been discontinued by upstream maintainers (such as deeplx)
+> - Translators with large dependencies (such as those depending on pytorch)
+> - Unstable translators
+> - Translator Based on Reverse Engineering API
+>
+> When you are unsure whether a translator meets the requirements, you can send an issue to discuss with the maintainers.
 
 ## Project Structure
 
@@ -109,6 +123,8 @@ Please do NOT submit PRs related to the above types.
 - **main.py**: Provides the command-line tool.
 - **high_level.py**: High-level interfaces based on BabelDOC.
 - **http_api.py**: Provides HTTP API (not started).
+
+Ask AI to understand the project: [DeepWiki](https://deepwiki.com/PDFMathTranslate/PDFMathTranslate-next)
 
 ## Contact Us
 

@@ -11,17 +11,93 @@
 ## 허용되지 않는 기여 유형
 
 1. 문서 국제화/번역
-2. HTTP API 등과 같은 핵심 인프라 관련 기여
+2. HTTP API 등과 같은 핵심 인프라와 관련된 기여
 3. "도움 필요 없음"으로 명시적으로 표시된 이슈 ([Byaidu/PDFMathTranslate](Byaidu/PDFMathTranslate) 및 [PDFMathTranslate/PDFMathTranslate-next](PDFMathTranslate/PDFMathTranslate-next) 저장소의 이슈 포함).
-4. 유지 관리자가 부적절하다고 판단한 기타 기여
-5. 문서 기여이지만 영어 이외의 언어로 된 문서를 변경하는 경우
-6. PDF 파일 수정이 필요한 PR
+4. 유지 관리자가 부적절하다고 판단한 기타 기여.
+5. 문서 기여이지만 영어 이외의 언어로 문서를 변경하는 경우.
+6. `PDF` 파일 수정이 필요한 PR.
+7. `pdf2zh_next/gui_translation.yaml` 파일을 수정하는 PR.
 
 위와 관련된 유형의 PR 은 제출하지 마십시오.
 
 > [!NOTE]
 >
 > 문서에 기여하고 싶다면 **문서의 영어 버전만 수정해 주세요**. 다른 언어 버전은 기여자들이 직접 번역합니다.
+
+- [ ] Adding new translation services.
+- [ ] Adding new features.
+- [ ] Adding new dependencies.
+
+## PRs that are welcome to submit directly
+- [ ] Fix typo.
+- [ ] Fix grammatical errors.
+- [ ] Fix broken links.
+- [ ] Fix incorrect translation.
+- [ ] Add missing translation.
+- [ ] Improve translation quality.
+- [ ] Add new language.
+
+---
+
+### OUTPUT
+
+## 유지 관리자와 이슈를 통해 사전 논의가 권장되는 PR
+- [ ] 새로운 번역 서비스 추가.
+- [ ] 새로운 기능 추가.
+- [ ] 새로운 의존성 추가.
+
+## 직접 제출이 권장되는 PR
+- [ ] 오타 수정.
+- [ ] 문법 오류 수정.
+- [ ] 깨진 링크 수정.
+- [ ] 잘못된 번역 수정.
+- [ ] 누락된 번역 추가.
+- [ ] 번역 품질 향상.
+- [ ] 새로운 언어 추가.
+
+- Adding new translation services.
+- Adding new features.
+- Adding new dependencies.
+
+For the following types of PRs, you are welcome to submit directly:
+- Fix typo.
+- Fix grammatical errors.
+- Fix broken links.
+- Fix incorrect translation.
+- Add missing translation.
+- Improve translation quality.
+- Add new language.
+
+---
+
+### OUTPUT
+
+다음 유형의 PR 은 제출 전에 유지 관리자와 먼저 논의하는 것이 권장됩니다:
+- 새로운 번역 서비스 추가.
+- 새로운 기능 추가.
+- 새로운 의존성 추가.
+
+다음 유형의 PR 은 직접 제출해 주셔도 좋습니다:
+- 오타 수정.
+- 문법 오류 수정.
+- 깨진 링크 수정.
+- 잘못된 번역 수정.
+- 누락된 번역 추가.
+- 번역 품질 향상.
+- 새로운 언어 추가.
+
+2. PRs related to adding new dependencies. (This project aims to maintain minimal dependencies).
+3. PRs related to adding new translation services. (Translation services require extensive testing and maintenance, and we currently do not plan to add new ones).
+4. PRs related to adding new features. (This project is currently in maintenance mode and does not plan to add new features).
+
+---
+
+### OUTPUT
+
+1. 다중 사용자 공유 기능과 관련된 PR. (이 프로젝트는 주로 단일 사용자 사용을 위해 설계되었으며, 포괄적인 다중 사용자 시스템을 도입할 계획이 없습니다).
+2. 새로운 의존성 추가와 관련된 PR. (이 프로젝트는 최소한의 의존성을 유지하는 것을 목표로 합니다).
+3. 새로운 번역 서비스 추가와 관련된 PR. (번역 서비스는 광범위한 테스트와 유지보수가 필요하며, 현재 새로운 서비스를 추가할 계획이 없습니다).
+4. 새로운 기능 추가와 관련된 PR. (이 프로젝트는 현재 유지보수 모드이며, 새로운 기능을 추가할 계획이 없습니다).
 
 ## 기여 프로세스
 
@@ -98,7 +174,14 @@
 
 > [!NOTE]
 >
-> 이 프로젝트는 RPS(초당 요청 수) 가 4 미만인 번역 엔진을 지원할 계획이 없습니다. 해당 엔진에 대한 지원을 제출하지 마십시오.
+> 이 프로젝트는 RPS(초당 요청 수) 가 4 미만인 번역 엔진을 지원할 의도가 없습니다. 이러한 엔진에 대한 지원을 요청하지 마십시오.
+> 다음 유형의 번역기도 통합되지 않습니다:
+> - 업스트림 유지보수자에 의해 중단된 번역기 (예: deeplx)
+> - 큰 의존성이 있는 번역기 (예: pytorch 에 의존하는 경우)
+> - 불안정한 번역기
+> - 리버스 엔지니어링 API 기반 번역기
+>
+> 특정 번역기가 요구 사항을 충족하는지 확실하지 않은 경우, 이슈를 보내 유지보수자와 논의할 수 있습니다.
 
 ## 프로젝트 구조
 
@@ -109,6 +192,8 @@
 - **main.py**: 명령줄 도구를 제공.
 - **high_level.py**: BabelDOC 기반의 고수준 인터페이스.
 - **http_api.py**: HTTP API 를 제공 (시작되지 않음).
+
+AI 에게 프로젝트 이해 요청: [DeepWiki](https://deepwiki.com/PDFMathTranslate/PDFMathTranslate-next)
 
 ## 문의하기
 

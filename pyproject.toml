@@ -1,6 +1,6 @@
 [project]
 name = "pdf2zh-next"
-version = "2.4.2+sg.1"
+version = "2.7.1"
 description = "Latex PDF Translator"
 authors = [
     { name = "awwaawwa", email = "aw@funstory.ai" },
@@ -31,10 +31,10 @@ dependencies = [
     # 5.36 has a bug, webui starts with a white screen
     "gradio<5.36",
     "tencentcloud-sdk-python-tmt",
-    "gradio_pdf>=0.0.21",
+    "gradio-pdf>=0.0.21",
     "peewee>=3.17.8",
     "fontTools",
-    "babeldoc>=0.4.11, <0.5.0",
+    "babeldoc>=0.5.20,<0.6.0",
     "rich",
     "pydantic-settings>=2.8.1",
     "pydantic>=2.10.6",
@@ -44,6 +44,8 @@ dependencies = [
     "uvicorn>=0.34.2",
     "legacy-cgi; python_version >= '3.13'",
     "chardet>=5.2.0",
+    "gradio-i18n==0.3.4", # since we have hooked it for language selection
+    "pyyaml>=6.0.2",
 ]
 
 [dependency-groups]
@@ -81,7 +83,7 @@ max-line-length = 88
 
 
 [bumpver]
-current_version = "2.4.2"
+current_version = "2.7.1"
 version_pattern = "MAJOR.MINOR.PATCH[.PYTAGNUM]"
 
 [bumpver.file_patterns]
@@ -123,6 +125,7 @@ ignore = [
     "B024",   # abstract class without abstract methods
     "S112",   # `try`-`except`-`continue` detected, consider logging the exception
     "COM812", # missing-trailing-comma
+    "S603",   # `subprocess` call: check for execution of untrusted input
 
 ]
 select = [

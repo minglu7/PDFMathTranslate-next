@@ -25,9 +25,11 @@ class OpenAITranslator(BaseTranslator):
         rate_limiter: BaseRateLimiter,
     ):
         super().__init__(settings, rate_limiter)
+        self.timeout = settings.translate_engine_settings.openai_timeout
         self.client = openai.OpenAI(
             base_url=settings.translate_engine_settings.openai_base_url,
             api_key=settings.translate_engine_settings.openai_api_key,
+            timeout=float(self.timeout) if self.timeout else openai.NOT_GIVEN,
             http_client=httpx.Client(
                 limits=httpx.Limits(
                     max_connections=None, max_keepalive_connections=None
@@ -48,7 +50,7 @@ class OpenAITranslator(BaseTranslator):
 
         if self.send_temperature and self.temperature:
             self.add_cache_impact_parameters("temperature", self.temperature)
-            self.options["temperature"] = int(self.temperature)
+            self.options["temperature"] = float(self.temperature)
         if self.send_reasoning_effort and self.reasoning_effort:
             self.add_cache_impact_parameters("reasoning_effort", self.reasoning_effort)
             self.options["reasoning_effort"] = self.reasoning_effort
@@ -59,6 +61,13 @@ class OpenAITranslator(BaseTranslator):
         self.token_count = AtomicInteger()
         self.prompt_token_count = AtomicInteger()
         self.completion_token_count = AtomicInteger()
+        self.cache_hit_prompt_token_count = AtomicInteger()
+
+        self.enable_json_mode = (
+            settings.translate_engine_settings.openai_enable_json_mode
+        )
+        if self.enable_json_mode:
+            self.add_cache_impact_parameters("enable_json_mode", self.enable_json_mode)
 
     @retry(
         retry=retry_if_exception_type(openai.RateLimitError),
@@ -67,14 +76,40 @@ class OpenAITranslator(BaseTranslator):
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
     def do_translate(self, text, rate_limit_params: dict = None) -> str:
+        options = self.options.copy()
+        if (
+            self.enable_json_mode
+            and rate_limit_params
+            and rate_limit_params.get("request_json_mode", False)
+        ):
+            options["response_format"] = {"type": "json_object"}
+
         response = self.client.chat.completions.create(
             model=self.model,
-            **self.options,
+            **options,
             messages=self.prompt(text),
         )
-        self.token_count.inc(response.usage.total_tokens)
-        self.prompt_token_count.inc(response.usage.prompt_tokens)
-        self.completion_token_count.inc(response.usage.completion_tokens)
+        try:
+            if hasattr(response, "usage") and response.usage:
+                if hasattr(response.usage, "total_tokens"):
+                    self.token_count.inc(response.usage.total_tokens)
+                if hasattr(response.usage, "prompt_tokens"):
+                    self.prompt_token_count.inc(response.usage.prompt_tokens)
+                if hasattr(response.usage, "completion_tokens"):
+                    self.completion_token_count.inc(response.usage.completion_tokens)
+                if hasattr(response.usage, "prompt_cache_hit_tokens"):
+                    self.cache_hit_prompt_token_count.inc(
+                        response.usage.prompt_cache_hit_tokens
+                    )
+                elif hasattr(response.usage, "prompt_tokens_details") and hasattr(
+                    response.usage.prompt_tokens_details, "cached_tokens"
+                ):
+                    self.cache_hit_prompt_token_count.inc(
+                        response.usage.prompt_tokens_details.cached_tokens
+                    )
+        except Exception as e:
+            logger.error(f"Error getting token usage: {e}")
+            pass
         message = response.choices[0].message.content.strip()
         message = self._remove_cot_content(message)
         return message
@@ -88,10 +123,17 @@ class OpenAITranslator(BaseTranslator):
     def do_llm_translate(self, text, rate_limit_params: dict = None):
         if text is None:
             return None
+        options = self.options.copy()
+        if (
+            self.enable_json_mode
+            and rate_limit_params
+            and rate_limit_params.get("request_json_mode", False)
+        ):
+            options["response_format"] = {"type": "json_object"}
 
         response = self.client.chat.completions.create(
             model=self.model,
-            **self.options,
+            **options,
             messages=[
                 {
                     "role": "user",
@@ -99,9 +141,27 @@ class OpenAITranslator(BaseTranslator):
                 },
             ],
         )
-        self.token_count.inc(response.usage.total_tokens)
-        self.prompt_token_count.inc(response.usage.prompt_tokens)
-        self.completion_token_count.inc(response.usage.completion_tokens)
+        try:
+            if hasattr(response, "usage") and response.usage:
+                if hasattr(response.usage, "total_tokens"):
+                    self.token_count.inc(response.usage.total_tokens)
+                if hasattr(response.usage, "prompt_tokens"):
+                    self.prompt_token_count.inc(response.usage.prompt_tokens)
+                if hasattr(response.usage, "completion_tokens"):
+                    self.completion_token_count.inc(response.usage.completion_tokens)
+                if hasattr(response.usage, "prompt_cache_hit_tokens"):
+                    self.cache_hit_prompt_token_count.inc(
+                        response.usage.prompt_cache_hit_tokens
+                    )
+                elif hasattr(response.usage, "prompt_tokens_details") and hasattr(
+                    response.usage.prompt_tokens_details, "cached_tokens"
+                ):
+                    self.cache_hit_prompt_token_count.inc(
+                        response.usage.prompt_tokens_details.cached_tokens
+                    )
+        except Exception as e:
+            logger.error(f"Error getting token usage: {e}")
+            pass
         message = response.choices[0].message.content.strip()
         message = self._remove_cot_content(message)
         return message

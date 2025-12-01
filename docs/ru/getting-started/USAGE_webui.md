@@ -18,7 +18,7 @@
     pdf2zh_next --gui
     ```
 
-4. Если ваш браузер не запустился автоматически, перейдите по адресу
+4. Если ваш браузер не запустился автоматически, перейдите по адресу:
 
     ```bash
     http://localhost:7860/
@@ -26,8 +26,14 @@
 
     Перетащите `PDF` файл в окно и нажмите `Translate`.
 
-<!-- <img src="./images/gui.gif" width="500"/> -->
-<img src='./../images/gui.gif' width="500"/>
+5. Если вы развертываете PDFMathTranslate с помощью docker и используете ollama в качестве бэкенд LLM для PDFMathTranslate, вам следует указать "Ollama host" как:
+
+   ```bash
+   http://host.docker.internal:11434
+   ```
+
+<!-- <img src="./../../images/gui.gif" width="500"/> -->
+<img src='./../../images/gui.gif' width="500"/>
 
 ### Переменные среды
 
@@ -38,12 +44,8 @@
 
 ## Предпросмотр
 
-<img src="./../images/before.png" width="500"/>
-<img src="./../images/after.png" width="500"/>
-
-## Обслуживание
-
-Графический интерфейс поддерживается [Rongxin](https://github.com/reycn)
+<img src="./../../images/before.png" width="500"/>
+<img src="./../../images/after.png" width="500"/>
 
 <div align="right"> 
 <h6><small>Часть содержимого этой страницы была переведена GPT и может содержать ошибки.</small></h6>

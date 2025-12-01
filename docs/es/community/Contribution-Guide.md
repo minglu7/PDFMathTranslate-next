@@ -10,18 +10,56 @@ Gracias por tu interés en este proyecto. Antes de empezar a contribuir, por fav
 
 ## Tipos de contribuciones no aceptadas
 
-1. Documentación de internacionalización/traducción  
+1. Internacionalización/traducción de documentación  
 2. Contribuciones relacionadas con la infraestructura central, como API HTTP, etc.  
 3. Problemas marcados explícitamente como "No se necesita ayuda" (incluyendo problemas en los repositorios [Byaidu/PDFMathTranslate](Byaidu/PDFMathTranslate) y [PDFMathTranslate/PDFMathTranslate-next](PDFMathTranslate/PDFMathTranslate-next)).  
 4. Otras contribuciones consideradas inapropiadas por los mantenedores.  
 5. Contribuir a la documentación, pero modificando la documentación en idiomas distintos al inglés.  
-6. PRs que requieran modificar archivos PDF.
+6. PRs que requieran modificar archivos PDF.  
+7. PRs que modifiquen el archivo `pdf2zh_next/gui_translation.yaml`.
 
 Por favor, NO envíes PRs relacionados con los tipos mencionados anteriormente.
 
 > [!NOTE]
 >
 > Si deseas contribuir con la documentación, por favor **solo modifiques la versión en inglés de la documentación**. Las versiones en otros idiomas son traducidas por los propios colaboradores.
+
+- [ ] Add new translation services
+- [ ] Add new features
+- [ ] Modify the project structure
+
+---
+
+### TRANSLATION RESULT
+
+## PR que se recomienda discutir con los mantenedores mediante un Issue antes de enviarlo
+- [ ] Agregar nuevos servicios de traducción
+- [ ] Agregar nuevas características
+- [ ] Modificar la estructura del proyecto
+
+- [ ] Add new translation services
+- [ ] Add new features
+- [ ] Modify the project structure
+
+---
+
+### TRANSLATION RESULT
+
+Para los siguientes tipos de PR, se recomienda discutir primero con los mantenedores antes de enviarlos:
+- [ ] Agregar nuevos servicios de traducción
+- [ ] Agregar nuevas características
+- [ ] Modificar la estructura del proyecto
+
+2. PRs that involve modifying the project's core architecture. (We welcome improvements, but please discuss them first).
+3. PRs that add new dependencies. (We aim to keep the project lightweight).
+
+---
+
+### TRANSLATION RESULT
+
+1. PR relacionados con la funcionalidad de uso compartido para múltiples usuarios. (Este proyecto está diseñado principalmente para uso de un solo usuario y no tiene la intención de introducir un sistema completo para múltiples usuarios).
+2. PR que impliquen modificar la arquitectura central del proyecto. (Damos la bienvenida a las mejoras, pero por favor discútelas primero).
+3. PR que agreguen nuevas dependencias. (Nuestro objetivo es mantener el proyecto liviano).
 
 ## Proceso de contribución
 
@@ -98,7 +136,14 @@ Por favor, NO envíes PRs relacionados con los tipos mencionados anteriormente.
 
 > [!NOTE]
 >
-> Este proyecto no tiene la intención de soportar ningún motor de traducción con un RPS (solicitudes por segundo) inferior a 4. Por favor, no envíes soporte para este tipo de motores.
+> Este proyecto no tiene la intención de admitir ningún motor de traducción con un RPS (solicitudes por segundo) inferior a 4. Por favor, no envíe soporte para dichos motores.
+> Los siguientes tipos de traductores tampoco se integrarán:
+> - Traductores que han sido discontinuados por los mantenedores upstream (como deeplx)
+> - Traductores con grandes dependencias (como aquellos que dependen de pytorch)
+> - Traductores inestables
+> - Traductores basados en API de ingeniería inversa
+>
+> Cuando no esté seguro de si un traductor cumple con los requisitos, puede enviar un problema para discutirlo con los mantenedores.
 
 ## Estructura del proyecto
 
@@ -109,6 +154,8 @@ Por favor, NO envíes PRs relacionados con los tipos mencionados anteriormente.
 - **main.py**: Proporciona la herramienta de línea de comandos.  
 - **high_level.py**: Interfaces de alto nivel basadas en BabelDOC.  
 - **http_api.py**: Proporciona API HTTP (no iniciado).
+
+Pregunta a la IA para entender el proyecto: [DeepWiki](https://deepwiki.com/PDFMathTranslate/PDFMathTranslate-next)
 
 ## Contáctanos
 
