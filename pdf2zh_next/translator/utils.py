@@ -10,8 +10,8 @@ from pdf2zh_next.config.translate_engine_model import TranslateEngineSettingErro
 from pdf2zh_next.translator.base_rate_limiter import BaseRateLimiter
 from pdf2zh_next.translator.base_translator import BaseTranslator
 from pdf2zh_next.translator.rate_limiter.qps_rate_limiter import QPSRateLimiter
-from pdf2zh_next.translator.registry import TranslatorRegistry
-from pdf2zh_next.translator.plugin_loader import load_plugins
+from pdf2zh_next.plugin.registry import TranslatorRegistry
+from pdf2zh_next.plugin import load_plugins
 
 logger = logging.getLogger(__name__)
 

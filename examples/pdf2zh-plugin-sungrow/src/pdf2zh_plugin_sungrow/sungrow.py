@@ -13,7 +13,8 @@ from pdf2zh_next.config.model import SettingsModel
 from pdf2zh_next.config.translate_engine_model import GUI_PASSWORD_FIELDS, GUI_SENSITIVE_FIELDS
 from pdf2zh_next.translator.base_rate_limiter import BaseRateLimiter
 from pdf2zh_next.translator.base_translator import BaseTranslator
-from pdf2zh_next.translator.registry import TranslatorRegistry
+# Import via translator package which re-exports the registry
+from pdf2zh_next.translator import TranslatorRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -121,4 +122,3 @@ def register_translator() -> None:
         SungrowTranslator,
         SungrowSettings,
     )
-

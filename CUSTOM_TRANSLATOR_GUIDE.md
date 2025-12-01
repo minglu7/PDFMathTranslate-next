@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from pdf2zh_next.config.model import SettingsModel
 from pdf2zh_next.translator.base_rate_limiter import BaseRateLimiter
 from pdf2zh_next.translator.base_translator import BaseTranslator
-from pdf2zh_next.translator.registry import TranslatorRegistry
+from pdf2zh_next.translator import TranslatorRegistry
 
 
 class MyTranslatorSettings(BaseModel):

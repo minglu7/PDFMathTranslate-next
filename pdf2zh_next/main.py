@@ -83,6 +83,10 @@ async def main() -> int:
         print(f"pdf2zh-next version: {__version__}")
         return 0
 
+    if settings.basic.plugin_doctor:
+        from pdf2zh_next.plugin.doctor import doctor
+        return doctor()
+
     if settings.basic.gui:
         from pdf2zh_next.gui import setup_gui
 

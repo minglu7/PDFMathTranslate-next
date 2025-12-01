@@ -48,7 +48,7 @@ def _add_custom_translator_args(parser: argparse.ArgumentParser) -> None:
     try:
         # Import here to avoid circular imports
         from pdf2zh_next.translator import load_plugins
-        from pdf2zh_next.translator.registry import TranslatorRegistry
+        from pdf2zh_next.plugin.registry import TranslatorRegistry
         
         # Load plugins to register custom translators
         load_plugins()
@@ -473,7 +473,7 @@ class ConfigManager:
         if recursion_depth == 0:
             try:
                 from pdf2zh_next.translator import load_plugins
-                from pdf2zh_next.translator.registry import TranslatorRegistry
+                from pdf2zh_next.plugin.registry import TranslatorRegistry
                 
                 load_plugins()
                 custom_translators = TranslatorRegistry.get_all_translator_info()
@@ -620,7 +620,7 @@ class ConfigManager:
         custom_engine_names = []
         try:
             from pdf2zh_next.translator import load_plugins
-            from pdf2zh_next.translator.registry import TranslatorRegistry
+            from pdf2zh_next.plugin.registry import TranslatorRegistry
             load_plugins()
             custom_translators = TranslatorRegistry.get_all_translator_info()
             custom_engine_names = [t.lower() for t in custom_translators.keys()]

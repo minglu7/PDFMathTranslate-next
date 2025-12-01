@@ -53,6 +53,7 @@ class BasicSettings(BaseModel):
         description="Restore offline assets package from the specified file",
     )
     version: bool = Field(default=False, description="Show version then exit")
+    plugin_doctor: bool = Field(default=False, description="Run plugin doctor to check plugin requirements")
 
 
 class GUISettings(BaseModel):

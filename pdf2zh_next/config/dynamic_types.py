@@ -99,9 +99,10 @@ class DynamicTypeManager:
         """Check if initialized"""
         # Also check translator registry status
         try:
-            from pdf2zh_next.translator.registry import TranslatorRegistry
+            # Import via translator package which re-exports TranslatorRegistry
+            from pdf2zh_next.translator import TranslatorRegistry
             return cls._initialized and TranslatorRegistry.is_initialized()
-        except ImportError:
+        except Exception:
             return cls._initialized
 
 

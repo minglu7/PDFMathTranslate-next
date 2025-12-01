@@ -27,7 +27,7 @@ except Exception:  # pragma: no cover - fallback for very old Pythons
         PackageNotFoundError,
     )
 
-from pdf2zh_next.translator.registry import TranslatorRegistry
+from pdf2zh_next.plugin.registry import TranslatorRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,11 @@ class PluginLoader:
         except Exception as e:
             logger.error(f"Error discovering entry points: {e}")
         return items
+
+    # Public, stable wrappers for external callers (e.g., doctor CLI)
+    def discover_entry_points(self) -> List[Tuple[EntryPoint, "Distribution"]]:
+        """Public API: discover entry points and their distributions."""
+        return self._discover_entry_points()
 
     def _precheck_distribution(self, dist: "Distribution") -> Tuple[bool, List[str]]:
         """Precheck plugin distribution requirements.
@@ -202,6 +207,10 @@ class PluginLoader:
                 f"Dependency precheck limited for plugin '{name}' (packaging not available)"
             )
             return True, []
+
+    def precheck_distribution(self, dist: "Distribution") -> Tuple[bool, List[str]]:
+        """Public API: precheck distribution requirements and return (ok, messages)."""
+        return self._precheck_distribution(dist)
 
     def _load_from_entry_point(self, ep: "EntryPoint") -> None:
         """Load and execute a plugin registration entry point.

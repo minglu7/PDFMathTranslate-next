@@ -8,19 +8,13 @@ try:
 except Exception:  # pragma: no cover
     from importlib_metadata import Distribution, distributions, EntryPoint  # type: ignore
 
-from pdf2zh_next.translator.plugin_loader import ENTRYPOINT_GROUP, PluginLoader
+from pdf2zh_next.plugin.loader import ENTRYPOINT_GROUP, PluginLoader
 
 
 def _discover_plugins() -> List[Tuple[EntryPoint, Distribution]]:
-    items: List[Tuple[EntryPoint, Distribution]] = []
-    for dist in distributions():
-        try:
-            for ep in getattr(dist, "entry_points", []):
-                if getattr(ep, "group", None) == ENTRYPOINT_GROUP:
-                    items.append((ep, dist))
-        except Exception:
-            continue
-    return items
+    # Reuse loader's public discovery API to avoid drift
+    loader = PluginLoader()
+    return loader.discover_entry_points()
 
 
 def doctor() -> int:
@@ -30,13 +24,13 @@ def doctor() -> int:
         print("No plugin entry points found.")
         return 0
 
-    print("Discovered plugin entry points (group: pdf2zh_next.translators):")
+    print(f"Discovered plugin entry points (group: {ENTRYPOINT_GROUP}):")
     print()
     all_ok = True
     for ep, dist in eps:
         name = dist.metadata.get("Name", "<unknown>")
         version = dist.version or "<unknown>"
-        ok, warnings = loader._precheck_distribution(dist)  # type: ignore[attr-defined]
+        ok, warnings = loader.precheck_distribution(dist)
         status = "OK" if ok else "UNMET"
         print(f"- {ep.name:20s} from {name}=={version}: {status}")
         if not ok:
@@ -54,4 +48,3 @@ def doctor() -> int:
 
 def cli() -> None:
     sys.exit(doctor())
-

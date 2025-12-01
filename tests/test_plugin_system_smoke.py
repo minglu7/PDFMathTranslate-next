@@ -9,7 +9,7 @@ def test_plugin_loader_smoke():
 
 def test_plugin_doctor_smoke():
     # Ensure the doctor CLI logic runs and returns a status code
-    from pdf2zh_next import plugin_doctor
+    from pdf2zh_next.plugin import doctor as plugin_doctor
 
     rc = plugin_doctor.doctor()
     # 0 = all ok or no plugins; 1 = some unmet deps
